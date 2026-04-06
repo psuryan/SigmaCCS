@@ -128,3 +128,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# SigmaCCS — generated artefacts (large, reproducible from scripts)
+data/conformers.pkl
+data/prepare_conformers.log
+experiments/
+context/
