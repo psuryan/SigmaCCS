@@ -35,11 +35,13 @@ echo ""
 echo "[Exp A] Random split (full)"
 python "${SCRIPT}" \
     --data "${DATA_CSV}" \
+    --conformers "${CONFORMERS}" \
     --split "${DATA_DIR}/splits/random/split.json" \
     --out "${EXPERIMENTS_DIR}/random" \
     --seeds 0 1 2 3 4 \
-    --epochs 300 \
+    --epochs 500 \
     --batch-size 14 \
+    --patience 20 \
     --label random
 
 # ----------------------------------------------------------------
@@ -49,11 +51,13 @@ echo ""
 echo "[Exp B] Scaffold split"
 python "${SCRIPT}" \
     --data "${DATA_CSV}" \
+    --conformers "${CONFORMERS}" \
     --split "${DATA_DIR}/splits/scaffold/split.json" \
     --out "${EXPERIMENTS_DIR}/scaffold" \
     --seeds 0 1 2 3 4 \
-    --epochs 300 \
+    --epochs 500 \
     --batch-size 14 \
+    --patience 20 \
     --label scaffold
 
 # ----------------------------------------------------------------
@@ -63,11 +67,13 @@ echo ""
 echo "[Exp C] Adduct-sensitive split"
 python "${SCRIPT}" \
     --data "${DATA_CSV}" \
+    --conformers "${CONFORMERS}" \
     --split "${DATA_DIR}/splits/adduct_sensitive/split.json" \
     --out "${EXPERIMENTS_DIR}/adduct_sensitive" \
     --seeds 0 1 2 3 4 \
-    --epochs 300 \
+    --epochs 500 \
     --batch-size 14 \
+    --patience 20 \
     --label adduct_sensitive
 
 # ----------------------------------------------------------------
@@ -85,8 +91,9 @@ for frac in 0.1 0.2 0.4 0.6 0.8; do
         --split "${DATA_DIR}/splits/random_frac/split_${frac}.json" \
         --out "${EXPERIMENTS_DIR}/random_frac/${label}" \
         --seeds 0 1 2 3 4 \
-        --epochs 300 \
+        --epochs 500 \
         --batch-size 14 \
+        --patience 20 \
         --label "${label}"
 done
 
@@ -109,8 +116,9 @@ for frac in 0.1 0.2 0.4 0.6 0.8; do
         --split "${DATA_DIR}/splits/adduct_sensitive_frac/split_${frac}.json" \
         --out "${EXPERIMENTS_DIR}/adduct_sensitive_frac/${label}" \
         --seeds 0 1 2 3 4 \
-        --epochs 300 \
+        --epochs 500 \
         --batch-size 14 \
+        --patience 20 \
         --label "adduct_sensitive_${label}"
 done
 
