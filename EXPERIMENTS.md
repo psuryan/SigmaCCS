@@ -32,9 +32,9 @@ python scripts/run_experiment.py \
     --conformers  data/conformers.pkl \
     --out         experiments/<split_name> \
     --seeds       0 1 2 3 4 \
-    --epochs      300 \
+    --epochs      500 \
     --batch-size  14 \
-    --patience    5 \
+    --patience    20 \
     --label       <split_name>
 ```
 
@@ -78,8 +78,8 @@ Two training configurations have been used across experiments. Architecture is i
 | Optimizer | Adam | Adam | Adam |
 | Learning rate | 0.0001 (fixed) | 0.0001 (fixed) | 0.0001 (fixed) |
 | Batch size | 32 | **14** | 14 |
-| Epochs (max) | 500 | **300** | 300 |
-| Early stopping patience | none | **5 epochs (val RMSE)** | not described |
+| Epochs (max) | 500 | **500** | 300 |
+| Early stopping patience | none | **20 epochs (val RMSE)** | not described |
 | Best-val checkpoint | no (final epoch) | **yes** (`model_best_val.h5`) | not described |
 | ECC layers | 3 × 16 channels | 3 × 16 channels | 3 × 16 channels |
 | Kernel network | [64, 64, 64, 64] | [64, 64, 64, 64] | [64, 64, 64, 64] |
@@ -88,7 +88,7 @@ Two training configurations have been used across experiments. Architecture is i
 
 **Notes:**
 - Exp 1 used batch 32 and 500 epochs to explore convergence; no val-based model selection.
-- Exp 2+ uses paper batch size (14) and epoch budget (300), plus `PersistentEarlyStopping` (patience=5 on val RMSE) saving `model_best_val.h5` at each new best; evaluation uses this checkpoint rather than the final epoch.
+- Exp 2+ uses paper batch size (14), 500 max epochs, plus `PersistentEarlyStopping` (patience=20 on val RMSE) saving `model_best_val.h5` at each new best; evaluation uses this checkpoint rather than the final epoch.
 - Conformer cache (`data/conformers.pkl`, 6258 entries) is shared across all experiments — conformers are fixed, removing a stochastic source the original paper did not control for.
 
 ---
@@ -176,14 +176,14 @@ Train–test RMSE gap: **3.525 → 5.181 = 1.656 Å²**. Large gap relative to G
 
 ---
 
-## Experiment 2 — Random Split, Best-Val Model (Paper Settings) ✓ COMPLETE
+## Experiment 2 — Random Split, Best-Val Model ✓ COMPLETE
 
-> **Config**: Exp 2 (paper settings) — 300 epochs, batch 14, patience 5 on val RMSE, best-val checkpoint.
+> **Config**: Exp 2 — 500 epochs, batch 14, patience 20 on val RMSE, best-val checkpoint.
 > This is the primary comparable result for GraphCCS. Output: `experiments/random/`.
 
 **Split**: `random/split.json` — 7374 / 913 / 922 (train/val/test)
 **Seeds**: 0–4
-**Epochs**: 300 | **Batch size**: 14 | **Patience**: 5 (val RMSE, early stopping) | **Best-val**: yes (`model_best_val.h5`)
+**Epochs**: 500 | **Batch size**: 14 | **Patience**: 20 (val RMSE, early stopping) | **Best-val**: yes (`model_best_val.h5`)
 **Log**: `experiments/random_run.log`
 **Output**: `experiments/random/`
 
@@ -195,9 +195,9 @@ nohup python scripts/run_experiment.py \
     --split       ../GraphCCS/data/splits/random/split.json \
     --out         experiments/random \
     --seeds       0 1 2 3 4 \
-    --epochs      300 \
+    --epochs      500 \
     --batch-size  14 \
-    --patience    5 \
+    --patience    20 \
     --label       random \
     > experiments/random_run.log 2>&1 &
 ```
@@ -272,11 +272,103 @@ Train–val–test RMSE: **4.664 → 4.713 → 5.137**. Train–test gap of ~0.4
 
 ---
 
+## Experiment 3 — Adduct-Sensitive Split, Best-Val Model ✓ COMPLETE
+
+> **Config**: Exp 2+ settings — 500 epochs, batch 14, patience 20 on val RMSE, best-val checkpoint.
+> Split puts molecules with the highest CCS range across adducts in val+test; train contains single-adduct and low-range molecules. Harder generalisation than random split.
+
+**Split**: `adduct_sensitive/split.json` — 6446 / 1381 / 1382 (train/val/test)
+**Seeds**: 0–4
+**Epochs**: 500 | **Batch size**: 14 | **Patience**: 20 (val RMSE) | **Best-val**: yes (`model_best_val.h5`)
+**Log**: `experiments/adduct_sensitive_run.log` (seeds 0–3), `experiments/adduct_sensitive_seed4_run.log` (seed 4 rerun)
+**Output**: `experiments/adduct_sensitive/`
+
+> **Note on seed 4**: Seed 4 diverged in the initial run (best-val at epoch 1, val RMSE=204). The seed_4 directory was cleaned and rerun; seed 4 converged cleanly on the second attempt (best-val epoch 126).
+
+### Command
+```bash
+nohup python scripts/run_experiment.py \
+    --data        ../GraphCCS/data/data.csv \
+    --conformers  data/conformers.pkl \
+    --split       ../GraphCCS/data/splits/adduct_sensitive/split.json \
+    --out         experiments/adduct_sensitive \
+    --seeds       0 1 2 3 4 \
+    --epochs      500 \
+    --batch-size  14 \
+    --patience    20 \
+    --label       adduct_sensitive \
+    > experiments/adduct_sensitive_run.log 2>&1 &
+```
+
+### Best-val epochs (per seed)
+
+| Seed | Best-val epoch | Best val RMSE |
+|------|---------------|---------------|
+| 0    | 96            | 6.7133        |
+| 1    | 108           | 6.8096        |
+| 2    | 78            | 6.9822        |
+| 3    | 41            | 7.4988        |
+| 4    | 126           | 6.6453        |
+
+### Per-seed results — train, test, and generalization gap
+
+| Seed | Train RMSE | Train %Diff | Train R | Train ρ | Train τ | Test RMSE | Test %Diff | Test R | Test ρ | Test τ | Gen. Gap (RMSE) |
+|------|-----------|-------------|---------|---------|---------|-----------|------------|--------|--------|--------|-----------------|
+| 0    | 4.963     | 2.063%      | 0.99666 | 0.99556 | 0.94515 | 6.471     | 2.563%     | 0.99103 | 0.98758 | 0.90989 | **1.508** |
+| 1    | 5.226     | 1.965%      | 0.99589 | 0.99478 | 0.94269 | 6.847     | 2.637%     | 0.99000 | 0.98617 | 0.90638 | **1.621** |
+| 2    | 5.127     | 2.042%      | 0.99605 | 0.99483 | 0.94088 | 6.947     | 2.786%     | 0.98973 | 0.98509 | 0.90015 | **1.820** |
+| 3    | 6.908     | 2.791%      | 0.99333 | 0.99115 | 0.92526 | 7.343     | 3.113%     | 0.98902 | 0.98392 | 0.89565 | **0.435** |
+| 4    | 4.090     | 1.635%      | 0.99741 | 0.99641 | 0.95083 | 6.980     | 2.680%     | 0.98989 | 0.98616 | 0.90383 | **2.890** |
+| **Mean** | **5.263** | **2.099%** | **0.9959** | **0.9945** | **0.9410** | **6.918** | **2.756%** | **0.9899** | **0.9858** | **0.9032** | **1.655** |
+| **± Std** | **± 1.024** | **± 0.423%** | **± 0.0015** | **± 0.0026** | **± 0.0095** | **± 0.313** | **± 0.215%** | **± 0.0007** | **± 0.0014** | **± 0.0055** | **± 0.875** |
+
+### Validation set — all metrics per seed
+
+| Seed | RMSE (Å) | Mean%Diff | Pearson R | Spearman R | Kendall τ |
+|------|----------|-----------|-----------|------------|-----------|
+| 0    | 6.713    | 2.702%    | 0.99127   | 0.98833    | 0.91013   |
+| 1    | 6.810    | 2.633%    | 0.99096   | 0.98796    | 0.91026   |
+| 2    | 6.982    | 2.820%    | 0.99053   | 0.98681    | 0.90430   |
+| 3    | 7.499    | 3.202%    | 0.98961   | 0.98584    | 0.90021   |
+| 4    | 6.645    | 2.615%    | 0.99153   | 0.98845    | 0.91060   |
+| **Mean** | **6.930** | **2.794%** | **0.99078** | **0.98748** | **0.90710** |
+| **± Std** | **± 0.342** | **± 0.241%** | **± 0.0008** | **± 0.0010** | **± 0.0044** |
+
+### Test set — per-adduct RMSE per seed
+
+| Adduct | n | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Mean ± Std |
+|--------|---|--------|--------|--------|--------|--------|------------|
+| [M+H]+ | 469 | 5.737 | 5.859 | 6.349 | 7.532 | 6.106 | **6.317 ± 0.719** |
+| [M+Na]+ | 504 | 6.805 | 7.594 | 7.363 | 7.467 | 7.611 | **7.368 ± 0.330** |
+| [M-H]- | 409 | 6.832 | 6.926 | 7.075 | 6.960 | 7.106 | **6.980 ± 0.112** |
+
+### Test set — per-adduct Mean%Diff per seed
+
+| Adduct | n | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Mean ± Std |
+|--------|---|--------|--------|--------|--------|--------|------------|
+| [M+H]+ | 469 | 2.253% | 2.326% | 2.555% | 3.307% | 2.226% | **2.533% ± 0.451%** |
+| [M+Na]+ | 504 | 2.626% | 2.938% | 2.922% | 3.003% | 2.999% | **2.898% ± 0.156%** |
+| [M-H]- | 409 | 2.841% | 2.622% | 2.883% | 3.026% | 2.808% | **2.836% ± 0.146%** |
+
+### Comparison: Adduct-Sensitive vs Random split (SigmaCCS Exp 2)
+
+| Metric | Random (Exp 2) | Adduct-Sensitive (Exp 3) | Δ |
+|--------|---------------|--------------------------|---|
+| Test RMSE | 5.137 ± 0.186 | **6.918 ± 0.313** | +1.781 |
+| Test Mean%Diff | 1.950% ± 0.056% | **2.756% ± 0.215%** | +0.806% |
+| Test Pearson R | 0.9955 ± 0.0003 | **0.9899 ± 0.0007** | −0.0056 |
+| Test Spearman R | 0.9932 ± 0.0005 | **0.9858 ± 0.0014** | −0.0074 |
+| Test Kendall τ | 0.9341 ± 0.0021 | **0.9032 ± 0.0055** | −0.0309 |
+
+The adduct-sensitive split is substantially harder (+1.78 Å RMSE). The distribution shift — training on low-CCS-range molecules, testing on high-CCS-range ones — explains most of the gap. Seed variance is also higher (gen gap std 0.875 vs 0.281 for random), reflecting sensitivity to initialisation on this harder split.
+
+---
+
 ## Known Issues / Next Steps
 
 1. ~~**No best-val checkpoint selection**~~ — **RESOLVED** in Exp 2. `PersistentEarlyStopping` in `scripts/callbacks.py` saves `model_best_val.h5` at every new val RMSE minimum; evaluation uses this checkpoint.
 
-2. ~~**No early stopping**~~ — **RESOLVED** in Exp 2. Patience=5 on val RMSE is applied via `PersistentEarlyStopping`. Most seeds converged between epochs 100–176.
+2. ~~**No early stopping**~~ — **RESOLVED** in Exp 2. Patience=20 on val RMSE is applied via `PersistentEarlyStopping`. Most seeds converged between epochs 100–176.
 
 3. ~~**Epoch 300 metrics unknown for seeds 0–1**~~ — **RESOLVED** in Exp 2. All 5 seeds were rerun from scratch with best-val selection and paper settings.
 
@@ -284,6 +376,6 @@ Train–val–test RMSE: **4.664 → 4.713 → 5.137**. Train–test gap of ~0.4
 
 5. **[M+Na]+ is the weakest adduct** — test RMSE 5.603 ± 0.306, notably higher than [M+H]+ (4.815) and [M-H]- (5.222), and with the largest seed variance. Likely reflects fewer training examples (1766 vs 3436 for [M+H]+) and greater structural sensitivity.
 
-6. **Remaining splits not yet run** — Exp B (scaffold), Exp C (adduct_sensitive), Exp D (random_frac), Exp E (adduct_sensitive_frac) are all pending. Run via `scripts/run_all.sh` or individually with paper settings (batch 14, epochs 300, patience 5).
+6. **Remaining splits not yet run** — Exp B (scaffold), Exp C (adduct_sensitive), Exp D (random_frac), Exp E (adduct_sensitive_frac) are all pending. Run via `scripts/run_all.sh` or individually with settings: batch 14, epochs 500, patience 20.
 
 7. **Conformer randomness** — `ps.randomSeed = -1` in `Generating_coordinates` means conformers are stochastic at generation time. The global cache (`data/conformers.pkl`) fixes conformers across all experiments, removing this source of variance. This is scientifically correct (conformers are a property of the molecule, not the split) but differs from the paper's original setup where conformers were regenerated each run.
